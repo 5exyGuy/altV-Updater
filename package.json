@@ -1,0 +1,23 @@
+{
+  "name": "altv-updater",
+  "version": "1.0.0",
+  "description": "Simple Updater for altV written in Node.js",
+  "main": "update.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/5exyGuy/altV-Updater.git"
+  },
+  "author": "5exyGuy",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/5exyGuy/altV-Updater/issues"
+  },
+  "homepage": "https://github.com/5exyGuy/altV-Updater#readme",
+  "dependencies": {
+    "progress": "^2.0.3",
+    "request": "^2.88.0"
+  }
+}
