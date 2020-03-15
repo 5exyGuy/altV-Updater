@@ -1,68 +1,72 @@
-const request = require('request');
-const fs = require('fs');
-const ProgressBar = require('progress');
-const path = require('path');
-const readline = require('readline');
-const exec = require('child_process').exec;
+import request from 'request';
+import fs from 'fs';
+import ProgressBar from 'progress';
+import path from 'path';
+import readline from 'readline';
 const platform = process.platform === 'win32' ? 'windows' : 'linux';
+const __dirname = path.resolve(path.dirname(''));
 
-const windowsURLS = [
-    {
-        url: `https://cdn.altv.mp/node-module/beta/x64_win32/update.json`,
-        destination: '.'
-    },
-    {
-        url: `https://cdn.altv.mp/node-module/beta/x64_win32/modules/node-module.dll`,
-        destination: './modules'
-    },
-    {
-        url: `https://cdn.altv.mp/node-module/beta/x64_win32/libnode.dll`,
-        destination: '.'
-    },
-    {
-        url: `https://cdn.altv.mp/server/beta/x64_win32/altv-server.exe`,
-        destination: '.'
-    },
-    {
-        url: `https://cdn.altv.mp/server/beta/x64_win32/data/vehmodels.bin`,
-        destination: './data'
-    },
-    {
-        url: `https://cdn.altv.mp/server/beta/x64_win32/data/vehmods.bin`,
-        destination: './data'
-    }
-];
+const windowsURLS = (build) => { 
+    return [
+        {
+            url: `https://cdn.altv.mp/node-module/${build}/x64_win32/update.json`,
+            destination: '.'
+        },
+        {
+            url: `https://cdn.altv.mp/node-module/${build}/x64_win32/modules/node-module.dll`,
+            destination: './modules'
+        },
+        {
+            url: `https://cdn.altv.mp/node-module/${build}/x64_win32/libnode.dll`,
+            destination: '.'
+        },
+        {
+            url: `https://cdn.altv.mp/server/${build}/x64_win32/altv-server.exe`,
+            destination: '.'
+        },
+        {
+            url: `https://cdn.altv.mp/server/${build}/x64_win32/data/vehmodels.bin`,
+            destination: './data'
+        },
+        {
+            url: `https://cdn.altv.mp/server/${build}/x64_win32/data/vehmods.bin`,
+            destination: './data'
+        }
+    ];
+};
 
-const linuxURLS = [
-    {
-        url: `https://cdn.altv.mp/node-module/beta/x64_linux/update.json`,
-        destination: '.'
-    },
-    {
-        url: `https://cdn.altv.mp/node-module/beta/x64_linux/modules/libnode-module.so`,
-        destination: './modules'
-    },
-    {
-        url: `https://cdn.altv.mp/node-module/beta/x64_linux/libnode.so.72`,
-        destination: '.'
-    },
-    {
-        url: `https://cdn.altv.mp/server/beta/x64_linux/altv-server`,
-        destination: '.'
-    },
-    {
-        url: `https://cdn.altv.mp/server/beta/x64_linux/data/vehmodels.bin`,
-        destination: './data'
-    },
-    {
-        url: `https://cdn.altv.mp/server/beta/x64_linux/data/vehmods.bin`,
-        destination: './data'
-    },
-    {
-        url: `https://cdn.altv.mp/others/start.sh`,
-        destination: '.'
-    }
-];
+const linuxURLS = (build) => { 
+    return [
+        {
+            url: `https://cdn.altv.mp/node-module/${build}/x64_linux/update.json`,
+            destination: '.'
+        },
+        {
+            url: `https://cdn.altv.mp/node-module/${build}/x64_linux/modules/libnode-module.so`,
+            destination: './modules'
+        },
+        {
+            url: `https://cdn.altv.mp/node-module/${build}/x64_linux/libnode.so.72`,
+            destination: '.'
+        },
+        {
+            url: `https://cdn.altv.mp/server/${build}/x64_linux/altv-server`,
+            destination: '.'
+        },
+        {
+            url: `https://cdn.altv.mp/server/${build}/x64_linux/data/vehmodels.bin`,
+            destination: './data'
+        },
+        {
+            url: `https://cdn.altv.mp/server/${build}/x64_linux/data/vehmods.bin`,
+            destination: './data'
+        },
+        {
+            url: `https://cdn.altv.mp/others/start.sh`,
+            destination: '.'
+        }
+    ];
+};
 
 const color = {
     Reset: "\x1b[0m",
@@ -91,6 +95,24 @@ const color = {
     BgCyan: "\x1b[46m",
     BgWhite: "\x1b[47m"
 }
+
+const builds = [
+    {
+        name: 'Development',
+        id: 'dev',
+        color: `${color.FgRed}`
+    },
+    {
+        name: 'Release cantidate',
+        id: 'rc',
+        color: `${color.FgBlue}`
+    },
+    {
+        name: 'Release',
+        id: 'release',
+        color: `${color.FgGreen}`
+    }
+];
 
 async function downloadFile(url, destination) {
     return new Promise((resolve, reject) => {
@@ -131,64 +153,42 @@ const steps = {
         █▄▄█ █░░ ░░█░░ ░ ░█▄█░   █░░█ █░░█ █░░█ █▄▄█ ░░█░░ █▀▀ █▄▄▀
         ▀░░▀ ▀▀▀ ░░▀░░ ▀ ░░▀░░   ░▀▀▀ █▀▀▀ ▀▀▀░ ▀░░▀ ░░▀░░ ▀▀▀ ▀░▀▀
         `);
-        const url = (platform == 'windows') ? windowsURLS[0].url : linuxURLS[0].url;
-        const info = request(url);
 
-        info.on('response', (res) => {
-            let json = '';
-
-            info.on('data', (chunk) => {
-                json += chunk;
-            });
-            info.on('end', () => {
-                const newestBuild = JSON.parse(json);
-                const fileName = url.substring(url.lastIndexOf('/') + 1);
-                
-                fs.readFile(path.join(__dirname, fileName), (err, data) => {
-                    if (err) {
-                        console.log(`█ ${color.BgYellow}${color.FgBlack}File ${fileName} is missing${color.Reset}`);
-                        console.log(`█ ${color.BgYellow}${color.FgBlack}Downloading missing files...${color.Reset}`);
-                        downloadFile(url, __dirname).then(() => {
-                            return steps.confirmToDownload();
-                        });
-                    }
-
-                    if (data) {
-                        const currentBuild = JSON.parse(data.toString());
-
-                        if (newestBuild.latestBuildNumber !== currentBuild.latestBuildNumber) {
-                            return steps.confirmToDownload();
-                        } else {
-                            console.log(`█ ${color.BgYellow}${color.FgBlack}You have the latest build${color.Reset}`);
-                            console.log(`█ ${color.BgYellow}${color.FgBlack}Current build: ${color.FgGreen}${currentBuild.latestBuildNumber}${color.Reset}`);
-                            console.log(`█ ${color.BgYellow}${color.FgBlack}Press any button to close this window${color.Reset}`);
-                            process.stdin.setRawMode(true);
-                            process.stdin.resume();
-                            process.stdin.on('data', process.exit.bind(process, 0));
-                            // return steps.end();
-                        }
-                    }
-                });
-            });
+        builds.forEach((build, index) => {
+            console.log(`█ ${color.BgYellow}${build.color}${index + 1} ${build.name}${color.Reset}`);
         });
+
+        return steps.chooseBuild();
     },
-    confirmToDownload: async () => {
-        await rl.question(`█ ${color.BgYellow}${color.FgBlack}Would you like to download the latest build? [yes/no]: ${color.Reset}`, answer => {
+    chooseBuild: async () => {
+        await rl.question(`█ ${color.BgYellow}${color.FgBlack}Choose which build would you like to download: ${color.Reset}`, (answer) => {
             switch(answer) {
-                case 'yes':
-                    return steps.downloadFiles();
-                case 'y':
-                    return steps.downloadFiles();
+                case '1':
+                    return steps.confirmToDownload('dev');
+                case '2':
+                    return steps.confirmToDownload('rc');
+                case '3':
+                    return steps.confirmToDownload('release');
                 default:
                     return steps.end(); 
             }
         });
     },
-    downloadFiles: async () => {
+    confirmToDownload: async (build) => {
+        await rl.question(`█ ${color.BgYellow}${color.FgBlack}Would you like to start the download? [yes/no]: ${color.Reset}`, (answer) => {
+            switch(true) {
+                case /([Yy][Ee][Ss]|[Yy][Ee]|[Yy])/.test(answer):
+                    return steps.downloadFiles(build);
+                default:
+                    return steps.end(); 
+            }
+        });
+    },
+    downloadFiles: async (build) => {
         let promises = [];
 
         if (platform === 'windows') {
-            windowsURLS.forEach(file => {
+            windowsURLS(build).forEach((file) => {
                 promises.push(downloadFile(file.url, path.join(__dirname, file.destination), cb => {}));
             });
 
@@ -199,7 +199,7 @@ const steps = {
                 process.stdin.on('data', process.exit.bind(process, 0));
             });
         } else {
-            linuxURLS.forEach(file => {
+            linuxURLS(build).forEach((file) => {
                 promises.push(downloadFile(file.url, path.join(__dirname, file.destination), cb => {}));
             });
 
